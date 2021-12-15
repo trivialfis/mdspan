@@ -173,6 +173,25 @@ auto make_diagonal(stdex::mdspan<T, Extents, Layout> src) {
       src.data(), m};
 }
 
+template <typename T, typename Extents, typename Layout, typename Accessor>
+auto make_diagonal_1(stdex::mdspan<T, Extents, Layout, Accessor> const src) {
+  static_assert(Extents::rank() == 2, "");
+  auto mapping = src.mapping();
+  auto s0 = mapping.stride(0);
+  auto s1 = mapping.stride(1);
+  auto e = mapping.extents();
+  auto ret_stride = s0 + s1;
+  auto ret_shape = std::max(e.extent(0), e.extent(1));
+  stdex::extents<stdex::dynamic_extent> ret_e{ret_shape};
+  std::array<size_t, 1> ret_strides{ret_stride};
+
+  stdex::layout_stride::mapping<stdex::extents<stdex::dynamic_extent>>
+      ret_mapping{ret_e, ret_strides};
+  stdex::mdspan<T, decltype(ret_e), stdex::layout_stride, Accessor> ret{
+      src.data(), ret_mapping};
+  return ret;
+}
+
 TEST(TestSubmdspan, test_diagonal) {
   std::vector<int> d(3 * 3, 0);
   std::iota(d.begin(), d.end(), 0);
@@ -184,9 +203,20 @@ TEST(TestSubmdspan, test_diagonal) {
   auto accessor = m.accessor();
 
   auto diag = make_diagonal(m);
+  stdex::mdspan<int const,
+                stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>>
+      c_m{m};
   ASSERT_EQ(diag(1), diag[1]);
   ASSERT_EQ(diag[1], 4);
-  // stdex::submdspan(diag, std::pair<size_t, size_t>{1, 3});
+  {
+    auto diag = make_diagonal_1(c_m);
+    ASSERT_EQ(diag(1), diag[1]);
+    ASSERT_EQ(diag[1], 4);
+    auto subspan = stdex::submdspan(diag, std::pair<size_t, size_t>{1, 3});
+    for (size_t i = 0; i < subspan.extent(0); ++i) {
+      std::cout << subspan(i) << std::endl;
+    }
+  }
 }
 
 //template<class LayoutOrg, class LayoutSub, class ExtentsOrg, class ExtentsSub, class ... SubArgs>
