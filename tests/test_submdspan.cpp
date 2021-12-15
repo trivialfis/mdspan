@@ -118,6 +118,76 @@ TEST(TestSubmdspanLayoutRightStaticSizedTuples, test_submdspan_layout_right_stat
   ASSERT_EQ((__MDSPAN_OP(sub0, 0, 0, 0)),       42);
 }
 
+template <typename Upstream> struct layout_diagonal {
+public:
+  template <class Extents> class mapping {
+    stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent> upstream_;
+    template <class> friend class mapping;
+
+  public:
+    using size_type = typename Extents::size_type;
+    using layout_type = layout_diagonal;
+    using extents_type = Extents;
+
+  public:
+    constexpr mapping() noexcept = default;
+    constexpr mapping(mapping const &) noexcept = default;
+    constexpr mapping(mapping &&) noexcept = default;
+    constexpr mapping(
+        stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent> const
+            &that) noexcept
+        : upstream_{that} {}
+
+    constexpr mapping &operator=(mapping const &) noexcept = default;
+    constexpr mapping &operator=(mapping &&) noexcept = default;
+    ~mapping() noexcept = default;
+
+    static constexpr bool is_always_strided() noexcept { return true; }
+    static constexpr bool is_always_contiguous() noexcept { return false; }
+    static constexpr bool is_always_unique() noexcept { return true; }
+    static constexpr bool is_unique() noexcept { return true; }
+    constexpr bool is_contiguous() const noexcept { return false; }
+    constexpr bool is_strided() const noexcept { return false; }
+
+    template <typename Index>
+    constexpr size_type operator()(Index idx) const noexcept {
+      using E = stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>;
+      E extent{upstream_.extent(0), upstream_.extent(0)};
+      using M = typename Upstream::template mapping<E>;
+      return M{extent}(idx, idx);
+    }
+  };
+};
+
+template <typename T, typename Extents, typename Upstream>
+using diagonal_mdspan = stdex::mdspan<T, Extents, layout_diagonal<Upstream>,
+                                      stdex::default_accessor<T>>;
+
+template <typename T, typename Extents, typename Layout>
+auto make_diagonal(stdex::mdspan<T, Extents, Layout> src) {
+  // fixme: pass mapping type.
+  typename layout_diagonal<Layout>::template mapping<
+      stdex::extents<stdex::dynamic_extent>>
+      m(src.extents());
+  return diagonal_mdspan<T, stdex::extents<stdex::dynamic_extent>, Layout>{
+      src.data(), m};
+}
+
+TEST(TestSubmdspan, test_diagonal) {
+  std::vector<int> d(3 * 3, 0);
+  std::iota(d.begin(), d.end(), 0);
+  stdex::mdspan<int,
+                stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>>
+      m(d.data(), 3, 3);
+
+  auto mapping = m.mapping();
+  auto accessor = m.accessor();
+
+  auto diag = make_diagonal(m);
+  ASSERT_EQ(diag(1), diag[1]);
+  ASSERT_EQ(diag[1], 4);
+  // stdex::submdspan(diag, std::pair<size_t, size_t>{1, 3});
+}
 
 //template<class LayoutOrg, class LayoutSub, class ExtentsOrg, class ExtentsSub, class ... SubArgs>
 

@@ -43,6 +43,7 @@
 
 #pragma once
 
+#include <iostream>
 #include "macros.hpp"
 #include "trait_backports.hpp"
 #include "extents.hpp"
@@ -158,7 +159,8 @@ struct layout_right {
 
     template <class... Indices>
     constexpr size_type operator()(Indices... idxs) const noexcept {
-      return __compute_offset(__rank_count<0, Extents::rank()>(), idxs...);
+      auto a = __compute_offset(__rank_count<0, Extents::rank()>(), idxs...);
+      return a;
     }
 
     constexpr Extents extents() const noexcept {
