@@ -191,6 +191,60 @@ auto make_diagonal_1(stdex::mdspan<T, Extents, Layout, Accessor> const src) {
       src.data(), ret_mapping};
   return ret;
 }
+template <typename T, bool is_device> struct accessor_base {
+public:
+  using offset_policy = accessor_base;
+  using element_type = T;
+  using reference = T &;
+  using pointer = T *;
+
+  constexpr accessor_base() noexcept = default;
+
+  MDSPAN_TEMPLATE_REQUIRES(
+      class OtherElementType,
+      /* requires */ (_MDSPAN_TRAIT(
+          std::is_convertible,
+          typename accessor_base<OtherElementType, is_device>::element_type (
+                  *)[],
+          element_type (*)[])))
+  MDSPAN_INLINE_FUNCTION
+  constexpr accessor_base(accessor_base<OtherElementType, is_device>) noexcept {
+  }
+
+  MDSPAN_INLINE_FUNCTION
+  constexpr pointer offset(pointer p, size_t i) const noexcept { return p + i; }
+
+  MDSPAN_FORCE_INLINE_FUNCTION
+  constexpr reference access(pointer p, size_t i) const noexcept {
+    return p[i];
+  }
+};
+
+template <typename T>
+using device_accessor = accessor_base<T, true>;
+
+
+template <typename T> using host_accessor = accessor_base<T, false>;;
+
+TEST(TestAccessor, host_device) {
+  std::vector<int> d(3 * 3, 0);
+  std::iota(d.begin(), d.end(), 0);
+  stdex::mdspan<int,
+                stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>,
+                stdex::layout_right, device_accessor<int>>
+      d_m(d.data(), 3, 3);
+  stdex::mdspan<int,
+                stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>,
+                stdex::layout_right, device_accessor<int>>
+      d_m_1(d_m);
+
+  /**
+   * stdex::mdspan<int,
+   *               stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>,
+   *               stdex::layout_right, host_accessor<int>>
+   *     h_m(d_m);
+   */
+}
 
 TEST(TestSubmdspan, test_diagonal) {
   std::vector<int> d(3 * 3, 0);
