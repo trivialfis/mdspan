@@ -191,6 +191,7 @@ auto make_diagonal_1(stdex::mdspan<T, Extents, Layout, Accessor> const src) {
       src.data(), ret_mapping};
   return ret;
 }
+
 template <typename T, bool is_device> struct accessor_base {
 public:
   using offset_policy = accessor_base;
@@ -220,10 +221,7 @@ public:
   }
 };
 
-template <typename T>
-using device_accessor = accessor_base<T, true>;
-
-
+template <typename T> using device_accessor = accessor_base<T, true>;
 template <typename T> using host_accessor = accessor_base<T, false>;;
 
 TEST(TestAccessor, host_device) {
@@ -270,6 +268,80 @@ TEST(TestSubmdspan, test_diagonal) {
     for (size_t i = 0; i < subspan.extent(0); ++i) {
       std::cout << subspan(i) << std::endl;
     }
+  }
+}
+
+/**
+ * A layout for tridiagonal matrix that's compatible with cusolver.
+ */
+struct layout_tridiagonal {
+  template <class Extents> class mapping {
+  public:
+    using size_type = typename Extents::size_type;
+    using layout_type = layout_tridiagonal;
+    using extents_type = Extents;
+
+  private:
+    extents_type extents_;
+    template <typename Index>
+    constexpr static size_t _offset(size_type n, Index i, Index j) {
+      if (i == j) {
+        return i;
+      } else if (i < j) {
+        return n + j - 1;
+      } else {
+        return n + n - 1 + i - 1;
+      }
+    }
+
+  public:
+    constexpr mapping() noexcept = default;
+    constexpr mapping(extents_type e) noexcept : extents_{std::move(e)} {}
+    constexpr mapping(mapping const &) noexcept = default;
+    constexpr mapping(mapping &&) noexcept = default;
+    constexpr mapping &operator=(mapping const &) noexcept = default;
+    constexpr mapping &operator=(mapping &&) noexcept = default;
+    ~mapping() noexcept = default;
+
+    // fixme: verify this
+    static constexpr bool is_always_strided() noexcept { return true; }
+    static constexpr bool is_always_contiguous() noexcept { return false; }
+    static constexpr bool is_always_unique() noexcept { return true; }
+    static constexpr bool is_unique() noexcept { return true; }
+    constexpr bool is_contiguous() const noexcept { return false; }
+    constexpr bool is_strided() const noexcept { return true; }
+
+    template <typename Index>
+    constexpr size_type operator()(Index i, Index j) const noexcept {
+      return _offset(extents_.extent(0), i, j);
+    }
+  };
+};
+
+template <typename T> auto make_tridiagonal(T *ptr, size_t n) {
+  using extent_t = stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>;
+  using tridiag_matrix_t =
+      stdex::mdspan<T, extent_t, layout_tridiagonal, host_accessor<T>>;
+  auto e = extent_t{n, n};
+  auto mapping = layout_tridiagonal::mapping<extent_t>(e);
+  tridiag_matrix_t m{ptr, mapping};
+  return m;
+}
+
+TEST(TestTridiagonal, Basic) {
+  size_t n = 8;
+  std::vector<int> d(n + (n - 1) * 2, 0);
+  std::iota(d.begin(), d.end(), 0);
+  auto tridiag = make_tridiagonal(d.data(), n);
+  for (size_t i = 0; i < n; ++i) {
+    for (size_t j = 0; j < n; ++j) {
+      if (i == j || i + 1 == j || j + 1 == i) {
+        std::cout << tridiag(i, j) << ", ";
+      } else {
+        std::cout << 0 << ", ";
+      }
+    }
+    std::cout << std::endl;
   }
 }
 
