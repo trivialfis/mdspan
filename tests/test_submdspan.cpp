@@ -315,6 +315,11 @@ struct layout_tridiagonal {
     constexpr size_type operator()(Index i, Index j) const noexcept {
       return _offset(extents_.extent(0), i, j);
     }
+
+    constexpr size_type required_span_size() const noexcept {
+      return this->extents_.extent(0) * this->extents_.extent(1);
+    }
+    constexpr Extents extents() const noexcept { return extents_; }
   };
 };
 
