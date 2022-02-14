@@ -40,7 +40,7 @@
 // ************************************************************************
 //@HEADER
 */
-
+// Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 
 #pragma once
 
