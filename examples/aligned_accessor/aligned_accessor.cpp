@@ -360,9 +360,15 @@ void add_aligned_mdspan_1d(aligned_mdspan_1d<const ElementType, byte_alignment> 
 			   aligned_mdspan_1d<ElementType, byte_alignment> z)
 {
   const index_type n = z.extent(0);
+  auto& z_ptr = z.data_handle();
+  auto& x_ptr = x.data_handle();
+  auto& y_ptr = y.data_handle();
   for (index_type i = 0; i < n; ++i) {
-    z[i] = x[i] + y[i];
+    z_ptr[i] = x_ptr[i] + y_ptr[i];
   }
+  // for (index_type i = 0; i < n; ++i) {
+  //   z[i] = x[i] + y[i];
+  // }
 }
 
 template<class ElementType, std::size_t byte_alignment>

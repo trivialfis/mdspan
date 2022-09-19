@@ -17,6 +17,7 @@ endmacro()
 
 if(MDSPAN_USE_SYSTEM_GTEST)
   find_package(GTest CONFIG REQUIRED)
+  set_target_properties(GTest::gtest_main PROPERTIES IMPORTED_GLOBAL TRUE)
   add_library(gtest_main ALIAS GTest::gtest_main)
 else()
   # adapted from https://github.com/google/googletest/blob/master/googletest/README.md
